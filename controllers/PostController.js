@@ -7,9 +7,17 @@ const PostController = {
     // + VALIDACIONES AL CREAR POST (ok)
     async create(req, res, next) {
         try {
+            const userName = await User.findById(req.user._id)
             const post = await Post.create(
-                {...req.body}
-            )
+                {...req.body, 
+                authorPostId: userName._id,
+                authorName: userName.name
+            }
+        )
+            //PARA METER EL ID DEL POST EN LA LISTA DE POST DE CADA USUARIO
+            await User.findByIdAndUpdate(req.user._id, {
+                $push: { postList: post._id },
+                })
             res.status(201)
             .send({ message: 'Post creado con éxito', post})
         } catch (error) {
@@ -40,9 +48,10 @@ const PostController = {
     //CREAR COMENTARIO EN UN POST
     async insertComment(req, res){
         try {
+            const userComment = await User.findById(req.user._id)
             const post = await Post.findByIdAndUpdate(
                 req.params._id,
-                {$push: { comments: { userId: req.user._id, comment: req.body.comment}}},
+                {$push: { comments: { userId: req.user._id, userNameComment: userComment.name, comment: req.body.comment}}},
                 { new: true }
             ) 
             res.send(post)
@@ -71,12 +80,13 @@ const PostController = {
 
 
     //TRAER POSTS (junto con usuarios y junto a comentarios)
-    //POPULATE (pdte)
+    //POPULATE
     async getAll(req, res) {
         try {
         const { page = 1, limit = 10 } = req.query
         const posts = await Post.find()
         .populate('comments.userId')
+        //.populate('authorPostId')
         .limit(limit * 1)
         .skip((page - 1) * limit)
         res.send(posts)
@@ -149,16 +159,16 @@ const PostController = {
         try {
         const post = await Post.findByIdAndUpdate(
             req.params._id, 
-            { $pop: { likes: req.user._id } }, 
+            { $pull: { likes: req.user._id } }, 
             { new: true }
         )
         await User.findByIdAndUpdate(req.user._id,
-            { $pop: { likeList: req.params._id } },
+            { $pull: { likeList: req.params._id } },
             { new: true })
-        res.send(post)
+        res.status(200).send({ message: 'Dislike realizado con éxito', post})
         } catch (error) {
         console.error(error)
-        res.status(500).send({ message: "Error al dar like" })
+        res.status(500).send({ message: "Error al quitar like" })
         }
     }
 

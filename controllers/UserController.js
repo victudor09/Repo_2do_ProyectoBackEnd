@@ -1,20 +1,24 @@
 const User = require('../models/User')
 const jwt = require('jsonwebtoken')
 const { jwt_secret } = require ('../config/keys.js')
+const bcrypt = require('bcryptjs')
 
 const UserController = {
 
 //CREAR USUARIO
-async create(req, res) {
+async create(req, res, next) {
  try {
- const user = await User.create(req.body)
- res.status(201).send({message: 'Usuario creado con éxito', user})
+    const passwordHash = bcrypt.hashSync(req.body.password, 10)
+    const user = await User.create({...req.body, password: passwordHash})
+    res.status(201).send({message: 'Usuario creado con éxito', user})
  } catch (error) {
- console.error(error)
- res
- .status(500)
- .send({ message: 'Ha habido un problema al crear el usuario' })
- }
+    //error.origin = 'usuario'
+    console.error(error)
+    res
+    .status(500)
+    .send({ message: 'Ha habido un problema al crear el usuario' })
+    next(error)
+}
 },
 
 // TRAER LISTA DE USUARIOS
@@ -37,13 +41,21 @@ async login(req, res) {
     const user = await User.findOne({
         email: req.body.email,
     })
-    //GENERA EL TOKEN
-    const token = jwt.sign({ _id: user._id }, jwt_secret)
-    //A partir de 4 tokens se van eliminando los más antiguos
-    if (user.tokens.length > 4) user.tokens.shift()
-    user.tokens.push(token)
-    await user.save()
-    res.send({ message: 'Bienvenid@ ' + user.name, token })
+    const isMatch = bcrypt.compareSync(req.body.password, user.password)    
+  
+    if (isMatch) {
+        //GENERA EL TOKEN
+        const token = jwt.sign({ _id: user._id }, jwt_secret)
+        //A partir de 4 tokens se van eliminando los más antiguos
+        if (user.tokens.length > 4) user.tokens.shift()
+        user.tokens.push(token)
+        await user.save()
+        res.send({ message: 'Bienvenid@ ' + user.name, token })
+    }
+    else {
+        return res.status(400).send({ message: 'Usuario o contraseña incorrectos' })
+    }
+    
 
     } catch (error) {
     console.error(error)
@@ -54,11 +66,26 @@ async getInfo(req, res) {
     try {
     const user = await User.findById(req.user._id)
     .populate("likeList")
+    .populate("postList")
     res.send(user)
     } catch (error) {
     console.error(error)
     }
+},
+
+async logout(req, res) {
+    try {
+    const usuario = await User.findByIdAndUpdate(req.user._id, {
+    $pull: { tokens: req.headers.authorization },
+    })
+    res.send({ message: usuario.name + ' te has desconectado con éxito' })
+    } catch (error) {
+    console.error(error)
+    res.status(500).send({
+    message: 'Hubo un problema al intentar desconectar al usuario',
+    })
     }
+},
    
 
 }

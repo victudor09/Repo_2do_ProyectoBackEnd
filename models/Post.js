@@ -1,4 +1,6 @@
 const mongoose = require('mongoose')
+const ObjectId = mongoose.SchemaTypes.ObjectId
+
 
 const PostSchema = new mongoose.Schema(
     {
@@ -6,15 +8,22 @@ const PostSchema = new mongoose.Schema(
             type: String,
             required: [true, 'Por favor rellena el titulo'],
         },
-        body: {
+        subtitle: {
             type: String,
-            required: [true, 'Por favor rellena el cuerpo de publicacion'],
+            required: [true, 'Por favor rellena el subtitulo de la publicacion'],
         },
-        comments: Array
+        comments: [
+            {
+                userId:  { type: ObjectId, ref: 'User'},
+                comment: String
+            }
+        ],
+        likes: [{type: ObjectId}],
     },
     {timestamps: true}
 )
 
+//NO ME FUNCIONA BÚSQUEDA POR ÍNDICE
 PostSchema.index({
     title: 'text',
 })

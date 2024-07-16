@@ -4,8 +4,13 @@ const UserSchema = new mongoose.Schema(
     {
         name: String,
         email: String,
-        password: String
+        password: String,
+        tokens: [],
+        likeList:  [{ type: ObjectId, ref: 'Post' }],
+        //FALTA REFERENCIAR POST + ROLES
     },
+
+    
     { timestamps: true }
 )
 
